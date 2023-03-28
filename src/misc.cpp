@@ -71,88 +71,6 @@ size_t strlen(const char* s) {
 }
 
 extern "C"
-int wcsicmp(const wchar_t* s1, const wchar_t* s2) {
-    size_t i = 0;
-
-    while (true) {
-        wchar_t c1 = s1[i];
-        wchar_t c2 = s2[i];
-
-        if (c1 == 0 && c2 == 0)
-            return 0;
-        else if (c1 == 0)
-            return -1;
-        else if (c2 == 0)
-            return 1;
-
-        if (c1 >= 'A' && c1 <= 'Z')
-            c1 = c1 - 'A' + 'a';
-
-        if (c2 >= 'A' && c2 <= 'Z')
-            c2 = c2 - 'A' + 'a';
-
-        if (c1 != c2)
-            return c1 > c2 ? 1 : -1;
-
-        i++;
-    }
-}
-
-extern "C"
-int stricmp(const char* s1, const char* s2) {
-    size_t i = 0;
-
-    while (true) {
-        char c1 = s1[i];
-        char c2 = s2[i];
-
-        if (c1 == 0 && c2 == 0)
-            return 0;
-        else if (c1 == 0)
-            return -1;
-        else if (c2 == 0)
-            return 1;
-
-        if (c1 >= 'A' && c1 <= 'Z')
-            c1 = c1 - 'A' + 'a';
-
-        if (c2 >= 'A' && c2 <= 'Z')
-            c2 = c2 - 'A' + 'a';
-
-        if (c1 != c2)
-            return c1 > c2 ? 1 : -1;
-
-        i++;
-    }
-}
-
-extern "C"
-int strnicmp(const char* s1, const char* s2, int n) {
-    for (int i = 0; i < n; i++) {
-        char c1 = s1[i];
-        char c2 = s2[i];
-
-        if (c1 == 0 && c2 == 0)
-            return 0;
-        else if (c1 == 0)
-            return -1;
-        else if (c2 == 0)
-            return 1;
-
-        if (c1 >= 'A' && c1 <= 'Z')
-            c1 = c1 - 'A' + 'a';
-
-        if (c2 >= 'A' && c2 <= 'Z')
-            c2 = c2 - 'A' + 'a';
-
-        if (c1 != c2)
-            return c1 > c2 ? 1 : -1;
-    }
-
-    return 0;
-}
-
-extern "C"
 int strcmp(const char* s1, const char* s2) {
     size_t i = 0;
 
@@ -321,46 +239,6 @@ char* strcpy(char* dest, const char* src) {
     *dest = 0;
 
     return orig_dest;
-}
-
-void itow(int v, wchar_t* w) {
-    wchar_t s[12], *p;
-    bool neg = false;
-
-    if (v == 0) {
-        s[0] = '0';
-        s[1] = 0;
-        return;
-    }
-
-    if (v < 0) {
-        neg = true;
-        v = -v;
-    }
-
-    s[11] = 0;
-    p = &s[11];
-
-    while (v != 0) {
-        p = &p[-1];
-
-        *p = (v % 10) + '0';
-
-        v /= 10;
-    }
-
-    if (neg) {
-        p = &p[-1];
-        *p = '-';
-    }
-
-    do {
-        *w = *p;
-        w++;
-        p++;
-    } while (*p);
-
-    *w = 0;
 }
 
 EFI_STATUS utf8_to_utf16(wchar_t* dest, unsigned int dest_max, unsigned int* dest_len, const char* src, unsigned int src_len) {
@@ -737,64 +615,6 @@ const char* error_string(EFI_STATUS Status) {
         default:
             return "(unknown error)";
     }
-}
-
-char* stpcpy_utf16(char* dest, const wchar_t* src) {
-    while (*src) {
-        uint32_t cp = *src;
-
-        if ((cp & 0xfc00) == 0xd800) {
-            if (src[1] == 0 || (src[1] & 0xfc00) != 0xdc00)
-                cp = 0xfffd;
-            else {
-                cp = (cp & 0x3ff) << 10;
-                cp |= src[1] & 0x3ff;
-                cp += 0x10000;
-
-                src++;
-            }
-        } else if ((cp & 0xfc00) == 0xdc00)
-            cp = 0xfffd;
-
-        if (cp > 0x10ffff)
-            cp = 0xfffd;
-
-        if (cp < 0x80) {
-            *dest = (uint8_t)cp;
-            dest++;
-        } else if (cp < 0x800) {
-            *dest = 0xc0 | ((cp & 0x7c0) >> 6);
-            dest++;
-
-            *dest = 0x80 | (cp & 0x3f);
-            dest++;
-        } else if (cp < 0x10000) {
-            *dest = 0xe0 | ((cp & 0xf000) >> 12);
-            dest++;
-
-            *dest = 0x80 | ((cp & 0xfc0) >> 6);
-            dest++;
-
-            *dest = 0x80 | (cp & 0x3f);
-            dest++;
-        } else {
-            *dest = 0xf0 | ((cp & 0x1c0000) >> 18);
-            dest++;
-
-            *dest = 0x80 | ((cp & 0x3f000) >> 12);
-            dest++;
-
-            *dest = 0x80 | ((cp & 0xfc0) >> 6);
-            dest++;
-
-            *dest = 0x80 | (cp & 0x3f);
-            dest++;
-        }
-
-        src++;
-    }
-
-    return dest;
 }
 
 extern "C"
