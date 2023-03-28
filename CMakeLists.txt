@@ -32,7 +32,7 @@ endif()
 
 set(SRC_FILES src/btrfs.c
     src/crc32c.c
-    src/misc.cpp
+    src/misc.c
     src/zlib/adler32.c
     src/zlib/deflate.c
     src/zlib/inffast.c

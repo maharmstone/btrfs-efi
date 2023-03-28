@@ -18,7 +18,6 @@
 #include "misc.h"
 #include <stdbool.h>
 
-extern "C"
 void wcsncpy(wchar_t* dest, const wchar_t* src, size_t n) {
     size_t i = 0;
 
@@ -35,7 +34,6 @@ void wcsncpy(wchar_t* dest, const wchar_t* src, size_t n) {
     dest[i] = 0;
 }
 
-extern "C"
 void wcsncat(wchar_t* dest, const wchar_t* src, size_t n) {
     while (*dest != 0) {
         if (n == 0)
@@ -48,7 +46,6 @@ void wcsncat(wchar_t* dest, const wchar_t* src, size_t n) {
     wcsncpy(dest, src, n);
 }
 
-extern "C"
 size_t wcslen(const wchar_t* s) {
     size_t i = 0;
 
@@ -59,7 +56,6 @@ size_t wcslen(const wchar_t* s) {
     return i;
 }
 
-extern "C"
 size_t strlen(const char* s) {
     size_t i = 0;
 
@@ -70,7 +66,6 @@ size_t strlen(const char* s) {
     return i;
 }
 
-extern "C"
 int strcmp(const char* s1, const char* s2) {
     size_t i = 0;
 
@@ -92,7 +87,6 @@ int strcmp(const char* s1, const char* s2) {
     }
 }
 
-extern "C"
 int memcmp(const void* s1, const void* s2, size_t n) {
 #if __INTPTR_WIDTH__ == 64
     while (n > sizeof(uint64_t)) {
@@ -135,7 +129,6 @@ int memcmp(const void* s1, const void* s2, size_t n) {
     return 0;
 }
 
-extern "C"
 void memcpy(void* dest, const void* src, size_t n) {
 #if __INTPTR_WIDTH__ == 64
     while (n >= sizeof(uint64_t)) {
@@ -176,7 +169,6 @@ void memcpy(void* dest, const void* src, size_t n) {
     }
 }
 
-extern "C"
 void* memset(void* s, int c, size_t n) {
     void* orig_s = s;
 
@@ -226,7 +218,6 @@ void* memset(void* s, int c, size_t n) {
     return orig_s;
 }
 
-extern "C"
 char* strcpy(char* dest, const char* src) {
     char* orig_dest = dest;
 
@@ -617,7 +608,6 @@ const char* error_string(EFI_STATUS Status) {
     }
 }
 
-extern "C"
 int strncmp(const char* s1, const char* s2, size_t n) {
     for (size_t i = 0; i < n; i++) {
         char c1 = s1[i];
@@ -637,7 +627,6 @@ int strncmp(const char* s1, const char* s2, size_t n) {
     return 0;
 }
 
-extern "C"
 void memmove(void* dest, const void* src, size_t n) {
     while (n > 0) {
         *(uint8_t*)dest = *(uint8_t*)src;
@@ -649,7 +638,6 @@ void memmove(void* dest, const void* src, size_t n) {
     }
 }
 
-extern "C"
 long int strtol(const char* nptr, char** endptr, int base) {
     long int val;
 
@@ -686,7 +674,6 @@ char* strcat(char* dest, const char *src) {
     return orig_dest;
 }
 
-extern "C"
 void* memchr(const void* s, int c, size_t n) {
     uint8_t* ptr = (uint8_t*)s;
 
@@ -701,7 +688,6 @@ void* memchr(const void* s, int c, size_t n) {
     return NULL;
 }
 
-extern "C"
 char* strstr(const char* haystack, const char* needle) {
     size_t len = strlen(needle);
 
