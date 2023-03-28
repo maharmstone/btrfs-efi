@@ -1,19 +1,19 @@
 /* Copyright (c) Mark Harmstone 2020
  *
- * This file is part of Quibble.
+ * This file is part of btrfs-efi.
  *
- * Quibble is free software: you can redistribute it and/or modify
+ * btrfs-efi is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public Licence as published by
  * the Free Software Foundation, either version 3 of the Licence, or
  * (at your option) any later version.
  *
- * Quibble is distributed in the hope that it will be useful,
+ * btrfs-efi is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public Licence for more details.
  *
  * You should have received a copy of the GNU Lesser General Public Licence
- * along with Quibble.  If not, see <http://www.gnu.org/licenses/>. */
+ * along with btrfs-efi.  If not, see <http://www.gnu.org/licenses/>. */
 
 // This LZO compression code comes from v0.22 of lzo, written way back in
 // 1996, and available here:
