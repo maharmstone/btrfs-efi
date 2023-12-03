@@ -2,9 +2,6 @@ cmake_minimum_required(VERSION 3.14)
 
 project(btrfs-efi VERSION 20230328)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:efi_main")
     add_compile_options("/GS-")
@@ -27,8 +24,6 @@ elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "X86")
 endif()
 
 # -----------------------------------
-
-#src/misc.cpp
 
 set(SRC_FILES src/btrfs.c
     src/crc32c.c
