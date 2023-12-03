@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(btrfs-efi VERSION 20230328)
+project(btrfs-efi LANGUAGES C VERSION 20230328)
 
 if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /ENTRY:efi_main")
