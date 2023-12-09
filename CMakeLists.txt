@@ -59,12 +59,7 @@ target_compile_options(btrfs PRIVATE "-Werror-implicit-function-declaration")
 
 target_link_options(btrfs PRIVATE "-nostartfiles")
 target_link_options(btrfs PRIVATE "-shared")
-
-if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
-    target_link_options(btrfs PRIVATE "-Wl,--subsystem,efi_boot_service_driver")
-else()
-    target_link_options(btrfs PRIVATE "-Wl,--subsystem,11")
-endif()
+target_link_options(btrfs PRIVATE "-Wl,--subsystem,11")
 
 if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "X86")
 target_link_options(btrfs PRIVATE "-e_efi_main")
