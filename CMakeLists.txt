@@ -21,6 +21,8 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "AMD64" OR ${CMAKE_SYSTEM_PROCESSOR} STRE
     include_directories(/usr/include/efi/x86_64)
 elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "X86")
     include_directories(/usr/include/efi/ia32)
+elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "ARM64" OR ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
+    include_directories(/usr/include/efi/aarch64)
 endif()
 
 # -----------------------------------
