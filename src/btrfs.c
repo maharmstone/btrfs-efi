@@ -20,6 +20,7 @@
 #include <efilink.h>
 #include <stdbool.h>
 #include <string.h>
+#include <wchar.h>
 #include "misc.h"
 #include "quibbleproto.h"
 #include "btrfs.h"
