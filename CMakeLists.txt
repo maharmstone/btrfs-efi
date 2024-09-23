@@ -50,20 +50,32 @@ endif()
 
 # -----------------------------------
 
-set(SRC_FILES src/btrfs.c
-    src/crc32c.c
-    src/misc.c
-    src/zlib/adler32.c
+set(ZLIB_SRC_FILES src/zlib/adler32.c
     src/zlib/deflate.c
     src/zlib/inffast.c
     src/zlib/inflate.c
     src/zlib/inftrees.c
     src/zlib/trees.c
-    src/zlib/zutil.c
+    src/zlib/zutil.c)
+
+add_library(zlib STATIC ${ZLIB_SRC_FILES})
+target_compile_definitions(zlib PRIVATE -DNO_GZIP -DZ_SOLO)
+
+if(NOT MSVC)
+    target_compile_options(zlib PRIVATE -ffunction-sections)
+else()
+    target_compile_options(zlib PRIVATE /Gy)
+endif()
+
+# -----------------------------------
+
+set(SRC_FILES src/btrfs.c
+    src/crc32c.c
+    src/misc.c
     src/lzo.c)
 
 add_executable(btrfs ${SRC_FILES})
-target_link_libraries(btrfs zstd)
+target_link_libraries(btrfs zstd zlib)
 
 set_target_properties(btrfs PROPERTIES SUFFIX ".efi")
 
