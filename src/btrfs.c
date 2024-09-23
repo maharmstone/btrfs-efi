@@ -34,7 +34,7 @@
 
 #define ZSTD_STATIC_LINKING_ONLY
 
-#include "zstd/zstd.h"
+#include "zstd/lib/zstd.h"
 
 #define __S_IFDIR 0040000
 

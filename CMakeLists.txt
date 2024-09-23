@@ -29,6 +29,26 @@ endif()
 
 # -----------------------------------
 
+set(ZSTD_SRC_FILES src/zstd/lib/common/entropy_common.c
+    src/zstd/lib/common/error_private.c
+    src/zstd/lib/common/fse_decompress.c
+    src/zstd/lib/decompress/huf_decompress.c
+    src/zstd/lib/common/zstd_common.c
+    src/zstd/lib/decompress/zstd_ddict.c
+    src/zstd/lib/decompress/zstd_decompress.c
+    src/zstd/lib/decompress/zstd_decompress_block.c)
+
+add_library(zstd STATIC ${ZSTD_SRC_FILES})
+target_compile_definitions(zstd PRIVATE -DZSTD_DEPS_MALLOC)
+
+if(NOT MSVC)
+    target_compile_options(zstd PRIVATE -ffunction-sections -include ${CMAKE_SOURCE_DIR}/src/zstd-shim.h)
+else()
+    target_compile_options(zstd PRIVATE /Gy /FI ${CMAKE_SOURCE_DIR}/src/zstd-shim.h)
+endif()
+
+# -----------------------------------
+
 set(SRC_FILES src/btrfs.c
     src/crc32c.c
     src/misc.c
@@ -40,17 +60,10 @@ set(SRC_FILES src/btrfs.c
     src/zlib/trees.c
     src/zlib/zutil.c
     src/lzo.c
-    src/xxhash.c
-    src/zstd/entropy_common.c
-    src/zstd/error_private.c
-    src/zstd/fse_decompress.c
-    src/zstd/huf_decompress.c
-    src/zstd/zstd_common.c
-    src/zstd/zstd_ddict.c
-    src/zstd/zstd_decompress.c
-    src/zstd/zstd_decompress_block.c)
+    src/xxhash.c)
 
 add_executable(btrfs ${SRC_FILES})
+target_link_libraries(btrfs zstd)
 
 set_target_properties(btrfs PROPERTIES SUFFIX ".efi")
 
