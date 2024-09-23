@@ -7,7 +7,7 @@ jobs:
       - run: apt-get update
       - run: apt-get install -y git cmake nodejs gcc-mingw-w64-i686 gnu-efi
       - run: echo "SHORT_SHA=`echo ${{ github.sha }} | cut -c1-8`" >> $GITHUB_ENV
-      - run: git clone ${{ github.server_url }}/${{ github.repository }} ${SHORT_SHA}
+      - run: git clone --recurse-submodules ${{ github.server_url }}/${{ github.repository }} ${SHORT_SHA}
       - run: cd ${SHORT_SHA} && git checkout ${{ github.sha }}
       - run: mkdir -p install/debug
       - run: |
