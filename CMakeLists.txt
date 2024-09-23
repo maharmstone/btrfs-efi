@@ -36,7 +36,8 @@ set(ZSTD_SRC_FILES src/zstd/lib/common/entropy_common.c
     src/zstd/lib/common/zstd_common.c
     src/zstd/lib/decompress/zstd_ddict.c
     src/zstd/lib/decompress/zstd_decompress.c
-    src/zstd/lib/decompress/zstd_decompress_block.c)
+    src/zstd/lib/decompress/zstd_decompress_block.c
+    src/zstd/lib/common/xxhash.c)
 
 add_library(zstd STATIC ${ZSTD_SRC_FILES})
 target_compile_definitions(zstd PRIVATE -DZSTD_DEPS_MALLOC)
@@ -59,8 +60,7 @@ set(SRC_FILES src/btrfs.c
     src/zlib/inftrees.c
     src/zlib/trees.c
     src/zlib/zutil.c
-    src/lzo.c
-    src/xxhash.c)
+    src/lzo.c)
 
 add_executable(btrfs ${SRC_FILES})
 target_link_libraries(btrfs zstd)
