@@ -2800,3 +2800,10 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable
 
     return EFI_SUCCESS;
 }
+
+/* Work round binutils bug - objcopy will create an unrelocatable EFI image
+ * unless at least one input module has a section called .reloc */
+#ifdef NEED_DUMMY_RELOC
+__asm(".pushsection .reloc");
+__asm(".popsection");
+#endif

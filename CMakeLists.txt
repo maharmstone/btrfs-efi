@@ -13,7 +13,7 @@ if(MSVC)
         set(CMAKE_SYSTEM_PROCESSOR "X86")
     endif()
 else()
-    add_compile_options(-fno-stack-check -fno-stack-protector -mno-stack-arg-probe)
+    add_compile_options(-fno-stack-check -fno-stack-protector -ffreestanding -Werror-implicit-function-declaration)
 endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/gnu-efi/inc)
@@ -25,6 +25,13 @@ elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64" OR CMAKE_SYSTEM_PROCESSOR STREQU
     include_directories(${CMAKE_SOURCE_DIR}/gnu-efi/inc/aarch64)
 elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm")
     include_directories(${CMAKE_SOURCE_DIR}/gnu-efi/inc/arm)
+endif()
+
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_compile_options(-mno-stack-arg-probe)
+elseif(NOT MSVC)
+    add_compile_options(-fpic -fpie -mcmodel=tiny -fshort-wchar -fno-ident)
+    add_compile_options(-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0)
 endif()
 
 # -----------------------------------
@@ -77,18 +84,28 @@ set(SRC_FILES src/btrfs.c
 add_executable(btrfs ${SRC_FILES})
 target_link_libraries(btrfs zstd zlib)
 
-set_target_properties(btrfs PROPERTIES SUFFIX ".efi")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set_target_properties(btrfs PROPERTIES SUFFIX ".efi")
+else()
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        target_compile_definitions(btrfs PRIVATE NEED_DUMMY_RELOC)
+
+        target_link_options(btrfs PRIVATE -T ${CMAKE_SOURCE_DIR}/gnu-efi/gnuefi/elf_aarch64_efi.lds)
+        add_custom_command(TARGET btrfs
+            POST_BUILD COMMAND ${CMAKE_OBJCOPY} -O efi-bsdrv-aarch64 -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rodata -j .rel -j .rela -j ".rel.*" -j ".rela.*" -j ".rel*" -j ".rela*" -j .reloc --strip-unneeded btrfs btrfs.efi
+            BYPRODUCTS btrfs.efi
+        )
+    elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "X86")
+        message(FATAL_ERROR "Please use mingw to compile for x86 or amd64")
+    endif()
+endif()
 
 if(${CMAKE_C_COMPILER_ID} STREQUAL "GNU" OR ${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
-    target_compile_options(btrfs PRIVATE "-ffreestanding")
-    target_compile_options(btrfs PRIVATE "-fno-stack-protector")
-    target_compile_options(btrfs PRIVATE "-fno-stack-check")
-    target_compile_options(btrfs PRIVATE "-mno-stack-arg-probe")
-    target_compile_options(btrfs PRIVATE "-Werror-implicit-function-declaration")
-
     target_link_options(btrfs PRIVATE "-nostartfiles")
-    target_link_options(btrfs PRIVATE "-shared")
-    target_link_options(btrfs PRIVATE "-Wl,--subsystem,11")
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+        target_link_options(btrfs PRIVATE "-Wl,--subsystem,11")
+    endif()
 
     if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "X86")
         target_link_options(btrfs PRIVATE "-e_efi_main")
