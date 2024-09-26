@@ -17,6 +17,11 @@
 
 #pragma once
 
+#include <efibind.h>
+#include <efidef.h>
+#include <efidevp.h>
+#include <efiprot.h>
+
 #define EFI_QUIBBLE_PROTOCOL_GUID { 0x98BCC8FF, 0xD212, 0x4B09, {0x84, 0x0C, 0x43, 0x19, 0xAD, 0x2E, 0xD3, 0x6A } }
 
 typedef struct _EFI_QUIBBLE_PROTOCOL EFI_QUIBBLE_PROTOCOL;
