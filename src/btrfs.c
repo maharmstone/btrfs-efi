@@ -33,11 +33,11 @@
 
 #define __S_IFDIR 0040000
 
-EFI_SYSTEM_TABLE* systable;
-EFI_BOOT_SERVICES* bs;
-EFI_QUIBBLE_INFO_PROTOCOL* info_proto = NULL;
+static EFI_SYSTEM_TABLE* systable;
+static EFI_BOOT_SERVICES* bs;
+static EFI_QUIBBLE_INFO_PROTOCOL* info_proto = NULL;
 
-EFI_DRIVER_BINDING_PROTOCOL drvbind;
+static EFI_DRIVER_BINDING_PROTOCOL drvbind;
 
 typedef struct {
     uint64_t address;
@@ -133,7 +133,7 @@ EFI_STATUS lzo_decompress(uint8_t* inbuf, uint32_t inlen, uint8_t* outbuf, uint3
 // crc32c.c
 uint32_t calc_crc32c(uint32_t seed, uint8_t* msg, unsigned int msglen);
 
-LIST_ENTRY volumes;
+static LIST_ENTRY volumes;
 
 void do_print(const char* s) {
     if (info_proto)
