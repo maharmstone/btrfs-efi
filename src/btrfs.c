@@ -1591,222 +1591,228 @@ static EFI_STATUS read_file(inode* ino, UINTN* bufsize, void* buf) {
     while (le != &ino->extents) {
         extent* ext = _CR(le, extent, list_entry);
 
-        if (ext->offset <= ino->position + to_read && ext->offset >= ino->position) {
-            if (ext->extent_data.compression != BTRFS_COMPRESSION_NONE &&
-                ext->extent_data.compression != BTRFS_COMPRESSION_ZLIB &&
-                ext->extent_data.compression != BTRFS_COMPRESSION_LZO &&
-                ext->extent_data.compression != BTRFS_COMPRESSION_ZSTD) {
-                char s[255], *p;
+        if (ext->offset > pos + left)
+            break;
 
-                p = stpcpy(s, "unsupported compression type ");
-                p = dec_to_str(p, ext->extent_data.compression);
-                p = stpcpy(p, "\n");
+        if (ext->offset + ext->extent_data.decoded_size < pos) {
+            le = le->Flink;
+            continue;
+        }
 
-                do_print(s);
+        if (ext->extent_data.compression != BTRFS_COMPRESSION_NONE &&
+            ext->extent_data.compression != BTRFS_COMPRESSION_ZLIB &&
+            ext->extent_data.compression != BTRFS_COMPRESSION_LZO &&
+            ext->extent_data.compression != BTRFS_COMPRESSION_ZSTD) {
+            char s[255], *p;
 
-                return EFI_UNSUPPORTED;
-            }
+            p = stpcpy(s, "unsupported compression type ");
+            p = dec_to_str(p, ext->extent_data.compression);
+            p = stpcpy(p, "\n");
 
-            if (ext->extent_data.encryption != 0) {
-                do_print("encryption not supported\n");
-                return EFI_UNSUPPORTED;
-            }
+            do_print(s);
 
-            if (ext->extent_data.encoding != 0) {
-                do_print("other encodings not supported\n");
-                return EFI_UNSUPPORTED;
-            }
+            return EFI_UNSUPPORTED;
+        }
 
-            if (ext->extent_data.type == EXTENT_TYPE_INLINE) {
-                if (ext->extent_data.compression == BTRFS_COMPRESSION_NONE)
-                    memcpy(dest, &ext->extent_data.data[pos - ext->offset], ext->extent_data.decoded_size - pos + ext->offset);
-                else {
-                    uint8_t* decomp;
-                    bool decomp_alloc;
-                    uint32_t read;
-                    uint16_t inlen = ext->size - (uint16_t)offsetof(EXTENT_DATA, data[0]);
+        if (ext->extent_data.encryption != 0) {
+            do_print("encryption not supported\n");
+            return EFI_UNSUPPORTED;
+        }
 
-                    if (ext->extent_data.decoded_size == 0 || ext->extent_data.decoded_size > 0xffffffff) {
-                        char s[255], *p;
+        if (ext->extent_data.encoding != 0) {
+            do_print("other encodings not supported\n");
+            return EFI_UNSUPPORTED;
+        }
 
-                        p = stpcpy(s, "ed->decoded_size was invalid (");
-                        p = hex_to_str(p, ext->extent_data.decoded_size);
-                        p = stpcpy(p, ")\n");
+        if (ext->extent_data.type == EXTENT_TYPE_INLINE) {
+            if (ext->extent_data.compression == BTRFS_COMPRESSION_NONE)
+                memcpy(dest, &ext->extent_data.data[pos - ext->offset], ext->extent_data.decoded_size - pos + ext->offset);
+            else {
+                uint8_t* decomp;
+                bool decomp_alloc;
+                uint32_t read;
+                uint16_t inlen = ext->size - (uint16_t)offsetof(EXTENT_DATA, data[0]);
 
-                        do_print(p);
+                if (ext->extent_data.decoded_size == 0 || ext->extent_data.decoded_size > 0xffffffff) {
+                    char s[255], *p;
 
-                        return EFI_INVALID_PARAMETER;
-                    }
+                    p = stpcpy(s, "ed->decoded_size was invalid (");
+                    p = hex_to_str(p, ext->extent_data.decoded_size);
+                    p = stpcpy(p, ")\n");
 
-                    read = (uint32_t)ext->extent_data.decoded_size - pos;
+                    do_print(p);
 
-                    if (read > ino->inode_item.st_size)
-                        read = ino->inode_item.st_size;
-
-                    if (pos > 0) {
-                        Status = bs->AllocatePool(EfiBootServicesData, ext->extent_data.decoded_size, (void**)&decomp);
-                        if (EFI_ERROR(Status)) {
-                            do_print("out of memory\n");
-                            return Status;
-                        }
-
-                        decomp_alloc = true;
-                    } else {
-                        decomp = dest;
-                        decomp_alloc = false;
-                    }
-
-                    if (ext->extent_data.compression == BTRFS_COMPRESSION_ZLIB) {
-                        Status = zlib_decompress(ext->extent_data.data, inlen, decomp, (uint32_t)(read + pos));
-                        if (EFI_ERROR(Status)) {
-                            do_print_error("zlib_decompress", Status);
-                            if (decomp_alloc) bs->FreePool(decomp);
-                            return Status;
-                        }
-                    } else if (ext->extent_data.compression == BTRFS_COMPRESSION_LZO) {
-                        if (inlen < sizeof(uint32_t)) {
-                            do_print("extent data was truncated\n");
-                            if (decomp_alloc) bs->FreePool(decomp);
-                            return EFI_INVALID_PARAMETER;
-                        } else
-                            inlen -= sizeof(uint32_t);
-
-                        Status = lzo_decompress((uint8_t*)ext->extent_data.data + sizeof(uint32_t), inlen, decomp, (uint32_t)(read + pos), sizeof(uint32_t));
-                        if (EFI_ERROR(Status)) {
-                            do_print_error("lzo_decompress", Status);
-                            if (decomp_alloc) bs->FreePool(decomp);
-                            return Status;
-                        }
-                    } else if (ext->extent_data.compression == BTRFS_COMPRESSION_ZSTD) {
-                        Status = zstd_decompress(ext->extent_data.data, inlen, decomp, (uint32_t)(read + pos));
-                        if (EFI_ERROR(Status)) {
-                            do_print_error("zstd_decompress", Status);
-                            if (decomp_alloc) bs->FreePool(decomp);
-                            return Status;
-                        }
-                    }
-
-                    if (decomp_alloc) {
-                        memcpy(dest, decomp + pos, read);
-                        bs->FreePool(decomp);
-                    }
+                    return EFI_INVALID_PARAMETER;
                 }
 
-                dest += ext->extent_data.decoded_size - pos + ext->offset;
-                left -= ext->extent_data.decoded_size - pos + ext->offset;
-                pos = ext->extent_data.decoded_size + ext->offset;
+                read = (uint32_t)ext->extent_data.decoded_size - pos;
 
-                if (left == 0)
-                    break;
-            } else if (ext->extent_data.type == EXTENT_TYPE_REGULAR) {
-                EXTENT_DATA2* ed2 = (EXTENT_DATA2*)&ext->extent_data.data[0];
-                uint64_t size;
-                uint8_t* tmp;
+                if (read > ino->inode_item.st_size)
+                    read = ino->inode_item.st_size;
 
-                if (ext->offset > pos) { // account for holes
-                    if (ext->offset - pos >= left) {
-                        pos = ext->offset;
-                        break;
-                    }
-
-                    dest += ext->offset - pos;
-                    left -= ext->offset - pos;
-                    pos = ext->offset;
-                }
-
-                // FIXME - only use tmp if necessary
-                // FIXME - unaligned reads
-
-                size = ed2->num_bytes - pos + ext->offset;
-                if (size > left)
-                    size = sector_align(left, ino->vol->block->Media->BlockSize);
-
-                if (ext->extent_data.compression == BTRFS_COMPRESSION_NONE) {
-                    Status = bs->AllocatePool(EfiBootServicesData, size, (void**)&tmp);
+                if (pos > 0) {
+                    Status = bs->AllocatePool(EfiBootServicesData, ext->extent_data.decoded_size, (void**)&decomp);
                     if (EFI_ERROR(Status)) {
-                        do_print_error("AllocatePool", Status);
+                        do_print("out of memory\n");
                         return Status;
                     }
 
-                    Status = read_data(ino->vol, ed2->address + ed2->offset + pos - ext->offset, size, tmp);
-                    if (EFI_ERROR(Status)) {
-                        do_print_error("read_data", Status);
-                        bs->FreePool(tmp);
-                        return Status;
-                    }
-
-                    memcpy(dest, tmp, size);
+                    decomp_alloc = true;
                 } else {
-                    uint8_t* comp;
+                    decomp = dest;
+                    decomp_alloc = false;
+                }
 
-                    Status = bs->AllocatePool(EfiBootServicesData, ext->extent_data.decoded_size, (void**)&tmp);
+                if (ext->extent_data.compression == BTRFS_COMPRESSION_ZLIB) {
+                    Status = zlib_decompress(ext->extent_data.data, inlen, decomp, (uint32_t)(read + pos));
                     if (EFI_ERROR(Status)) {
-                        do_print_error("AllocatePool", Status);
+                        do_print_error("zlib_decompress", Status);
+                        if (decomp_alloc) bs->FreePool(decomp);
                         return Status;
                     }
+                } else if (ext->extent_data.compression == BTRFS_COMPRESSION_LZO) {
+                    if (inlen < sizeof(uint32_t)) {
+                        do_print("extent data was truncated\n");
+                        if (decomp_alloc) bs->FreePool(decomp);
+                        return EFI_INVALID_PARAMETER;
+                    } else
+                        inlen -= sizeof(uint32_t);
 
-                    Status = bs->AllocatePool(EfiBootServicesData, ed2->size, (void**)&comp);
+                    Status = lzo_decompress((uint8_t*)ext->extent_data.data + sizeof(uint32_t), inlen, decomp, (uint32_t)(read + pos), sizeof(uint32_t));
                     if (EFI_ERROR(Status)) {
-                        do_print_error("AllocatePool", Status);
-                        bs->FreePool(tmp);
+                        do_print_error("lzo_decompress", Status);
+                        if (decomp_alloc) bs->FreePool(decomp);
                         return Status;
                     }
-
-                    Status = read_data(ino->vol, ed2->address, ed2->size, comp);
+                } else if (ext->extent_data.compression == BTRFS_COMPRESSION_ZSTD) {
+                    Status = zstd_decompress(ext->extent_data.data, inlen, decomp, (uint32_t)(read + pos));
                     if (EFI_ERROR(Status)) {
-                        do_print_error("read_data", Status);
+                        do_print_error("zstd_decompress", Status);
+                        if (decomp_alloc) bs->FreePool(decomp);
+                        return Status;
+                    }
+                }
+
+                if (decomp_alloc) {
+                    memcpy(dest, decomp + pos, read);
+                    bs->FreePool(decomp);
+                }
+            }
+
+            dest += ext->extent_data.decoded_size - pos + ext->offset;
+            left -= ext->extent_data.decoded_size - pos + ext->offset;
+            pos = ext->extent_data.decoded_size + ext->offset;
+
+            if (left == 0)
+                break;
+        } else if (ext->extent_data.type == EXTENT_TYPE_REGULAR) {
+            EXTENT_DATA2* ed2 = (EXTENT_DATA2*)&ext->extent_data.data[0];
+            uint64_t size;
+            uint8_t* tmp;
+
+            if (ext->offset > pos) { // account for holes
+                if (ext->offset - pos >= left) {
+                    pos = ext->offset;
+                    break;
+                }
+
+                dest += ext->offset - pos;
+                left -= ext->offset - pos;
+                pos = ext->offset;
+            }
+
+            // FIXME - only use tmp if necessary
+            // FIXME - unaligned reads
+
+            size = ed2->num_bytes - pos + ext->offset;
+            if (size > left)
+                size = sector_align(left, ino->vol->block->Media->BlockSize);
+
+            if (ext->extent_data.compression == BTRFS_COMPRESSION_NONE) {
+                Status = bs->AllocatePool(EfiBootServicesData, size, (void**)&tmp);
+                if (EFI_ERROR(Status)) {
+                    do_print_error("AllocatePool", Status);
+                    return Status;
+                }
+
+                Status = read_data(ino->vol, ed2->address + ed2->offset + pos - ext->offset, size, tmp);
+                if (EFI_ERROR(Status)) {
+                    do_print_error("read_data", Status);
+                    bs->FreePool(tmp);
+                    return Status;
+                }
+
+                memcpy(dest, tmp, size);
+            } else {
+                uint8_t* comp;
+
+                Status = bs->AllocatePool(EfiBootServicesData, ext->extent_data.decoded_size, (void**)&tmp);
+                if (EFI_ERROR(Status)) {
+                    do_print_error("AllocatePool", Status);
+                    return Status;
+                }
+
+                Status = bs->AllocatePool(EfiBootServicesData, ed2->size, (void**)&comp);
+                if (EFI_ERROR(Status)) {
+                    do_print_error("AllocatePool", Status);
+                    bs->FreePool(tmp);
+                    return Status;
+                }
+
+                Status = read_data(ino->vol, ed2->address, ed2->size, comp);
+                if (EFI_ERROR(Status)) {
+                    do_print_error("read_data", Status);
+                    bs->FreePool(comp);
+                    bs->FreePool(tmp);
+                    return Status;
+                }
+
+                if (ext->extent_data.compression == BTRFS_COMPRESSION_ZLIB) {
+                    Status = zlib_decompress(comp, ed2->size, tmp, ext->extent_data.decoded_size);
+                    if (EFI_ERROR(Status)) {
+                        do_print_error("zlib_decompress", Status);
                         bs->FreePool(comp);
                         bs->FreePool(tmp);
                         return Status;
                     }
-
-                    if (ext->extent_data.compression == BTRFS_COMPRESSION_ZLIB) {
-                        Status = zlib_decompress(comp, ed2->size, tmp, ext->extent_data.decoded_size);
-                        if (EFI_ERROR(Status)) {
-                            do_print_error("zlib_decompress", Status);
-                            bs->FreePool(comp);
-                            bs->FreePool(tmp);
-                            return Status;
-                        }
-                    } else if (ext->extent_data.compression == BTRFS_COMPRESSION_LZO) {
-                        if (ed2->size < sizeof(uint32_t)) {
-                            do_print("extent data was truncated\n");
-                            bs->FreePool(comp);
-                            bs->FreePool(tmp);
-                            return EFI_INVALID_PARAMETER;
-                        }
-
-                        Status = lzo_decompress(comp + sizeof(uint32_t), ed2->size - sizeof(uint32_t), tmp, ext->extent_data.decoded_size, sizeof(uint32_t));
-                        if (EFI_ERROR(Status)) {
-                            do_print_error("lzo_decompress", Status);
-                            bs->FreePool(comp);
-                            bs->FreePool(tmp);
-                            return Status;
-                        }
-                    } else if (ext->extent_data.compression == BTRFS_COMPRESSION_ZSTD) {
-                        Status = zstd_decompress(comp, ed2->size, tmp, ext->extent_data.decoded_size);
-                        if (EFI_ERROR(Status)) {
-                            do_print_error("zstd_decompress", Status);
-                            bs->FreePool(comp);
-                            bs->FreePool(tmp);
-                            return Status;
-                        }
+                } else if (ext->extent_data.compression == BTRFS_COMPRESSION_LZO) {
+                    if (ed2->size < sizeof(uint32_t)) {
+                        do_print("extent data was truncated\n");
+                        bs->FreePool(comp);
+                        bs->FreePool(tmp);
+                        return EFI_INVALID_PARAMETER;
                     }
 
-                    memcpy(dest, tmp + ed2->offset, size);
-
-                    bs->FreePool(comp);
+                    Status = lzo_decompress(comp + sizeof(uint32_t), ed2->size - sizeof(uint32_t), tmp, ext->extent_data.decoded_size, sizeof(uint32_t));
+                    if (EFI_ERROR(Status)) {
+                        do_print_error("lzo_decompress", Status);
+                        bs->FreePool(comp);
+                        bs->FreePool(tmp);
+                        return Status;
+                    }
+                } else if (ext->extent_data.compression == BTRFS_COMPRESSION_ZSTD) {
+                    Status = zstd_decompress(comp, ed2->size, tmp, ext->extent_data.decoded_size);
+                    if (EFI_ERROR(Status)) {
+                        do_print_error("zstd_decompress", Status);
+                        bs->FreePool(comp);
+                        bs->FreePool(tmp);
+                        return Status;
+                    }
                 }
 
-                bs->FreePool(tmp);
+                memcpy(dest, tmp + ed2->offset, size);
 
-                dest += size;
-                pos += size;
-                left -= size;
-
-                if (left == 0)
-                    break;
+                bs->FreePool(comp);
             }
+
+            bs->FreePool(tmp);
+
+            dest += size;
+            pos += size;
+            left -= size;
+
+            if (left == 0)
+                break;
         }
 
         le = le->Flink;
