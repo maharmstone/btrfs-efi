@@ -40,7 +40,7 @@ set(ZSTD_SRC_FILES src/zstd/lib/common/entropy_common.c
     src/zstd/lib/common/xxhash.c)
 
 add_library(zstd STATIC ${ZSTD_SRC_FILES})
-target_compile_definitions(zstd PRIVATE -DZSTD_DEPS_MALLOC -DXXH_NO_STDLIB)
+target_compile_definitions(zstd PRIVATE -DZSTD_DEPS_MALLOC -DXXH_NO_STDLIB -DZSTD_HAVE_WEAK_SYMBOLS=0)
 
 if(NOT MSVC)
     target_compile_options(zstd PRIVATE -ffunction-sections -include ${CMAKE_SOURCE_DIR}/src/zstd-shim.h)
