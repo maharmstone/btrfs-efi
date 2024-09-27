@@ -112,7 +112,7 @@ typedef struct {
 static void* zstd_malloc(void* opaque, size_t size);
 static void zstd_free(void* opaque, void* address);
 
-static const ZSTD_customMem zstd_mem = { .customAlloc = zstd_malloc, .customFree = zstd_free, .opaque = NULL };
+static ZSTD_customMem zstd_mem;
 
 #define UNUSED(x) (void)(x)
 #define sector_align(n, a) ((n)&((a)-1)?(((n)+(a))&~((a)-1)):(n))
@@ -2662,6 +2662,10 @@ static void get_info_protocol(EFI_HANDLE image_handle) {
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE* SystemTable) {
     EFI_STATUS Status;
     EFI_GUID guid = EFI_DRIVER_BINDING_PROTOCOL_GUID;
+
+    zstd_mem.customAlloc = zstd_malloc;
+    zstd_mem.customFree = zstd_free;
+    zstd_mem.opaque = NULL;
 
     systable = SystemTable;
     bs = SystemTable->BootServices;
