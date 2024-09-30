@@ -94,6 +94,7 @@ typedef struct {
 
 typedef struct {
     LIST_ENTRY list_entry;
+    uint64_t size;
     DIR_ITEM dir_item;
 } inode_child;
 
@@ -282,7 +283,7 @@ static EFI_STATUS read_data(volume* vol, uint64_t address, uint32_t size, void* 
     return EFI_VOLUME_CORRUPTED;
 }
 
-static int keycmp(KEY* key1, KEY* key2) {
+static int keycmp(const KEY* key1, const KEY* key2) {
     if (key1->obj_id < key2->obj_id)
         return -1;
 
@@ -304,7 +305,7 @@ static int keycmp(KEY* key1, KEY* key2) {
     return 0;
 }
 
-static EFI_STATUS find_item(volume* vol, root* r, traverse_ptr* tp, KEY* searchkey) {
+static EFI_STATUS find_item(volume* vol, root* r, traverse_ptr* tp, const KEY* searchkey) {
     EFI_STATUS Status;
     tree_header* tree;
     uint64_t addr;
@@ -1036,10 +1037,41 @@ static void normalize_path(WCHAR* path) {
     }
 }
 
+static void load_child_info(inode* ino, inode_child* ic) {
+    EFI_STATUS Status;
+    traverse_ptr tp;
+    KEY searchkey;
+    INODE_ITEM* ii;
+
+    // FIXME - subvols
+
+    searchkey.obj_id = ic->dir_item.key.obj_id;
+    searchkey.obj_type = TYPE_INODE_ITEM;
+    searchkey.offset = 0xffffffffffffffff;
+
+    Status = find_item(ino->vol, ino->r, &tp, &searchkey);
+    if (EFI_ERROR(Status))
+        return;
+
+    if (tp.key->obj_id != searchkey.obj_id || tp.key->obj_type != searchkey.obj_type)
+        goto end;
+
+    if (tp.itemlen < sizeof(INODE_ITEM))
+        goto end;
+
+    ii = tp.item;
+
+    ic->size = ii->st_size;
+
+end:
+    free_traverse_ptr(&tp);
+}
+
 static EFI_STATUS find_children(inode* ino) {
     EFI_STATUS Status;
     KEY searchkey;
     traverse_ptr tp;
+    LIST_ENTRY* le;
 
     searchkey.obj_id = ino->inode;
     searchkey.obj_type = TYPE_DIR_INDEX;
@@ -1098,6 +1130,8 @@ static EFI_STATUS find_children(inode* ino) {
                 return Status;
             }
 
+            ic->size = 0;
+
             memcpy(&ic->dir_item, tp.item, tp.itemlen);
             InsertTailList(&ino->children, &ic->list_entry);
         }
@@ -1113,10 +1147,19 @@ static EFI_STATUS find_children(inode* ino) {
         }
     }
 
+    free_traverse_ptr(&tp);
+
+    le = ino->children.Flink;
+    while (le != &ino->children) {
+        inode_child* ic = _CR(le, inode_child, list_entry);
+
+        load_child_info(ino, ic);
+
+        le = le->Flink;
+    }
+
     ino->children_found = true;
     ino->dir_position = ino->children.Flink;
-
-    free_traverse_ptr(&tp);
 
     return EFI_SUCCESS;
 }
@@ -1326,6 +1369,7 @@ static EFI_STATUS EFIAPI file_delete(struct _EFI_FILE_HANDLE* File) {
 
 static EFI_STATUS read_dir(inode* ino, UINTN* bufsize, void* buf) {
     EFI_STATUS Status;
+    inode_child* ic;
     DIR_ITEM* di;
     unsigned int fnlen;
     EFI_FILE_INFO* info;
@@ -1344,7 +1388,8 @@ static EFI_STATUS read_dir(inode* ino, UINTN* bufsize, void* buf) {
         return EFI_SUCCESS;
     }
 
-    di = &(_CR(ino->dir_position, inode_child, list_entry)->dir_item);
+    ic = _CR(ino->dir_position, inode_child, list_entry);
+    di = &ic->dir_item;
 
     Status = utf8_to_utf16(NULL, 0, &fnlen, di->name, di->n);
     if (EFI_ERROR(Status)) {
@@ -1361,7 +1406,7 @@ static EFI_STATUS read_dir(inode* ino, UINTN* bufsize, void* buf) {
     info = (EFI_FILE_INFO*)buf;
 
     info->Size = offsetof(EFI_FILE_INFO, FileName[0]) + fnlen;
-    //info->FileSize = ino->inode_item.st_size; // FIXME
+    info->FileSize = ic->size;
     //info->PhysicalSize = ino->inode_item.st_blocks; // FIXME
 //         info->CreateTime; // FIXME
 //         info->LastAccessTime; // FIXME
