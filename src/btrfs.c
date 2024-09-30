@@ -1800,7 +1800,7 @@ static EFI_STATUS read_file(inode* ino, UINTN* bufsize, void* buf) {
                     }
                 }
 
-                memcpy(dest, tmp + ed2->offset, size);
+                memcpy(dest, tmp + ed2->offset + pos - ext->offset, size);
 
                 bs->FreePool(comp);
             }
