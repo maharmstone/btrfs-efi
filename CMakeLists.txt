@@ -30,8 +30,14 @@ endif()
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_compile_options(-mno-stack-arg-probe)
 elseif(NOT MSVC)
-    add_compile_options(-fpic -fpie -mcmodel=tiny -fshort-wchar -fno-ident)
+    add_compile_options(-fpic -fpie -fshort-wchar -fno-ident)
     add_compile_options(-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0)
+
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        add_compile_options(-mcmodel=tiny)
+    elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        add_compile_options(-mno-sse)
+    endif()
 endif()
 
 # -----------------------------------
@@ -47,7 +53,7 @@ set(ZSTD_SRC_FILES src/zstd/lib/common/entropy_common.c
     src/zstd/lib/common/xxhash.c)
 
 add_library(zstd STATIC ${ZSTD_SRC_FILES})
-target_compile_definitions(zstd PRIVATE -DZSTD_DEPS_MALLOC -DXXH_NO_STDLIB -DZSTD_HAVE_WEAK_SYMBOLS=0)
+target_compile_definitions(zstd PRIVATE -DZSTD_DEPS_MALLOC -DXXH_NO_STDLIB -DZSTD_HAVE_WEAK_SYMBOLS=0 -DZSTD_DISABLE_ASM)
 
 if(NOT MSVC)
     target_compile_options(zstd PRIVATE -ffunction-sections -include ${CMAKE_SOURCE_DIR}/src/zstd-shim.h)
@@ -87,16 +93,23 @@ target_link_libraries(btrfs zstd zlib)
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set_target_properties(btrfs PROPERTIES SUFFIX ".efi")
 else()
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-        target_compile_definitions(btrfs PRIVATE NEED_DUMMY_RELOC)
+    target_compile_definitions(btrfs PRIVATE NEED_DUMMY_RELOC)
+    target_compile_definitions(btrfs PRIVATE GNU_EFI_USE_MS_ABI)
 
+    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        target_link_options(btrfs PRIVATE -T ${CMAKE_SOURCE_DIR}/gnu-efi/gnuefi/elf_x86_64_efi.lds)
+        add_custom_command(TARGET btrfs
+            POST_BUILD COMMAND ${CMAKE_OBJCOPY} -O efi-bsdrv-x86_64 -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rodata -j .rel -j .rela -j ".rel.*" -j ".rela.*" -j ".rel*" -j ".rela*" -j .reloc --strip-unneeded btrfs btrfs.efi
+            BYPRODUCTS btrfs.efi
+        )
+    elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
         target_link_options(btrfs PRIVATE -T ${CMAKE_SOURCE_DIR}/gnu-efi/gnuefi/elf_aarch64_efi.lds)
         add_custom_command(TARGET btrfs
             POST_BUILD COMMAND ${CMAKE_OBJCOPY} -O efi-bsdrv-aarch64 -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rodata -j .rel -j .rela -j ".rel.*" -j ".rela.*" -j ".rel*" -j ".rela*" -j .reloc --strip-unneeded btrfs btrfs.efi
             BYPRODUCTS btrfs.efi
         )
-    elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "X86")
-        message(FATAL_ERROR "Please use mingw to compile for x86 or amd64")
+    elseif (CMAKE_SYSTEM_PROCESSOR STREQUAL "X86")
+        message(FATAL_ERROR "Please use mingw to compile for x86")
     endif()
 endif()
 
