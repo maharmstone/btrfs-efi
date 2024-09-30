@@ -1045,14 +1045,38 @@ static void load_child_info(inode* ino, inode_child* ic) {
     traverse_ptr tp;
     KEY searchkey;
     INODE_ITEM* ii;
+    root* search_root;
 
-    // FIXME - subvols
+    if (ic->dir_item.key.obj_type == TYPE_ROOT_ITEM) {
+        LIST_ENTRY* le;
 
-    searchkey.obj_id = ic->dir_item.key.obj_id;
+        search_root = NULL;
+
+        le = ino->vol->roots.Flink;
+        while (le != &ino->vol->roots) {
+            root* r = _CR(le, root, list_entry);
+
+            if (r->id == ic->dir_item.key.obj_id)
+                search_root = r;
+            else if (r->id > ic->dir_item.key.obj_id)
+                break;
+
+            le = le->Flink;
+        }
+
+        if (!search_root)
+            return;
+
+        searchkey.obj_id = SUBVOL_ROOT_INODE;
+    } else {
+        search_root = ino->r;
+        searchkey.obj_id = ic->dir_item.key.obj_id;
+    }
+
     searchkey.obj_type = TYPE_INODE_ITEM;
     searchkey.offset = 0xffffffffffffffff;
 
-    Status = find_item(ino->vol, ino->r, &tp, &searchkey);
+    Status = find_item(ino->vol, search_root, &tp, &searchkey);
     if (EFI_ERROR(Status))
         return;
 
