@@ -156,8 +156,8 @@ void do_print_error(const char* func, EFI_STATUS Status) {
     do_print(s);
 }
 
-static EFI_STATUS drv_supported(EFI_DRIVER_BINDING_PROTOCOL* This, EFI_HANDLE ControllerHandle,
-                                EFI_DEVICE_PATH_PROTOCOL* RemainingDevicePath) {
+static EFI_STATUS EFIAPI drv_supported(EFI_DRIVER_BINDING_PROTOCOL* This, EFI_HANDLE ControllerHandle,
+                                       EFI_DEVICE_PATH_PROTOCOL* RemainingDevicePath) {
     EFI_STATUS Status;
     EFI_DISK_IO_PROTOCOL* disk_io;
     EFI_GUID guid_disk = EFI_DISK_IO_PROTOCOL_GUID;
@@ -2171,7 +2171,7 @@ static EFI_STATUS EFIAPI file_set_info(struct _EFI_FILE_HANDLE* File, EFI_GUID* 
     return EFI_UNSUPPORTED;
 }
 
-static EFI_STATUS file_flush(struct _EFI_FILE_HANDLE* File) {
+static EFI_STATUS EFIAPI file_flush(struct _EFI_FILE_HANDLE* File) {
     UNUSED(File);
 
     // nop
@@ -2575,7 +2575,7 @@ static EFI_STATUS EFIAPI open_subvol(EFI_OPEN_SUBVOL_PROTOCOL* This, UINT64 Subv
     return EFI_SUCCESS;
 }
 
-static EFI_STATUS get_driver_name(EFI_QUIBBLE_PROTOCOL* This, CHAR16* DriverName, UINTN* DriverNameLen) {
+static EFI_STATUS EFIAPI get_driver_name(EFI_QUIBBLE_PROTOCOL* This, CHAR16* DriverName, UINTN* DriverNameLen) {
     static const CHAR16 name[] = L"btrfs";
 
     UNUSED(This);
