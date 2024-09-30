@@ -95,6 +95,9 @@ typedef struct {
 typedef struct {
     LIST_ENTRY list_entry;
     uint64_t size;
+    BTRFS_TIME atime;
+    BTRFS_TIME mtime;
+    BTRFS_TIME otime;
     DIR_ITEM dir_item;
 } inode_child;
 
@@ -1062,6 +1065,9 @@ static void load_child_info(inode* ino, inode_child* ic) {
     ii = tp.item;
 
     ic->size = ii->st_size;
+    ic->atime = ii->st_atime;
+    ic->mtime = ii->st_mtime;
+    ic->otime = ii->otime;
 
 end:
     free_traverse_ptr(&tp);
@@ -1131,6 +1137,9 @@ static EFI_STATUS find_children(inode* ino) {
             }
 
             ic->size = 0;
+            ic->atime.seconds = ic->atime.nanoseconds = 0;
+            ic->mtime.seconds = ic->mtime.nanoseconds = 0;
+            ic->otime.seconds = ic->otime.nanoseconds = 0;
 
             memcpy(&ic->dir_item, tp.item, tp.itemlen);
             InsertTailList(&ino->children, &ic->list_entry);
@@ -1367,6 +1376,35 @@ static EFI_STATUS EFIAPI file_delete(struct _EFI_FILE_HANDLE* File) {
     return EFI_UNSUPPORTED;
 }
 
+static void btrfs_time_to_efi_time(const BTRFS_TIME* b, EFI_TIME* e) {
+    signed long long j, e2, f, g, h;
+    uint64_t days = b->seconds / 86400;
+    uint64_t secs = b->seconds % 86400;
+
+    j = days + 2440588;
+
+    f = (4 * j) + 274277;
+    f /= 146097;
+    f *= 3;
+    f /= 4;
+    f += j;
+    f += 1363;
+
+    e2 = (4 * f) + 3;
+    g = (e2 % 1461) / 4;
+    h = (5 * g) + 2;
+
+    e->Day = (uint8_t)(((h % 153) / 5) + 1);
+    e->Month = (uint8_t)(((h / 153) + 2) % 12 + 1);
+    e->Year = (uint16_t)((e2 / 1461) - 4716 + ((14 - e->Month) / 12));
+    e->Hour = secs / 3600;
+    e->Minute = (secs % 3600) / 60;
+    e->Second = secs % 60;
+    e->Nanosecond = b->nanoseconds;
+    e->TimeZone = 0;
+    e->Daylight = 0;
+}
+
 static EFI_STATUS read_dir(inode* ino, UINTN* bufsize, void* buf) {
     EFI_STATUS Status;
     inode_child* ic;
@@ -1408,9 +1446,9 @@ static EFI_STATUS read_dir(inode* ino, UINTN* bufsize, void* buf) {
     info->Size = offsetof(EFI_FILE_INFO, FileName[0]) + fnlen;
     info->FileSize = ic->size;
     //info->PhysicalSize = ino->inode_item.st_blocks; // FIXME
-//         info->CreateTime; // FIXME
-//         info->LastAccessTime; // FIXME
-//         info->ModificationTime; // FIXME
+    btrfs_time_to_efi_time(&ic->otime, &info->CreateTime);
+    btrfs_time_to_efi_time(&ic->atime, &info->LastAccessTime);
+    btrfs_time_to_efi_time(&ic->mtime, &info->ModificationTime);
     info->Attribute = di->type == BTRFS_TYPE_DIRECTORY ? EFI_FILE_DIRECTORY : 0;
 
     Status = utf8_to_utf16(info->FileName, fnlen, &fnlen, di->name, di->n);
