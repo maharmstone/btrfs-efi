@@ -95,6 +95,7 @@ typedef struct {
 typedef struct {
     LIST_ENTRY list_entry;
     uint64_t size;
+    uint64_t blocks;
     BTRFS_TIME atime;
     BTRFS_TIME mtime;
     BTRFS_TIME otime;
@@ -1089,6 +1090,7 @@ static void load_child_info(inode* ino, inode_child* ic) {
     ii = tp.item;
 
     ic->size = ii->st_size;
+    ic->blocks = ii->st_blocks;
     ic->atime = ii->st_atime;
     ic->mtime = ii->st_mtime;
     ic->otime = ii->otime;
@@ -1161,6 +1163,7 @@ static EFI_STATUS find_children(inode* ino) {
             }
 
             ic->size = 0;
+            ic->blocks = 0;
             ic->atime.seconds = ic->atime.nanoseconds = 0;
             ic->mtime.seconds = ic->mtime.nanoseconds = 0;
             ic->otime.seconds = ic->otime.nanoseconds = 0;
@@ -1469,7 +1472,7 @@ static EFI_STATUS read_dir(inode* ino, UINTN* bufsize, void* buf) {
 
     info->Size = offsetof(EFI_FILE_INFO, FileName[0]) + fnlen;
     info->FileSize = ic->size;
-    //info->PhysicalSize = ino->inode_item.st_blocks; // FIXME
+    info->PhysicalSize = ic->blocks;
     btrfs_time_to_efi_time(&ic->otime, &info->CreateTime);
     btrfs_time_to_efi_time(&ic->atime, &info->LastAccessTime);
     btrfs_time_to_efi_time(&ic->mtime, &info->ModificationTime);
