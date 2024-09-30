@@ -1,28 +1,24 @@
-name: build amd64
+name: build mingw amd64
 on: [push]
 jobs:
   amd64:
     runs-on: ubuntu-rolling
     steps:
       - run: apt-get update
-      - run: apt-get install -y git cmake nodejs gcc-x86-64-linux-gnu
+      - run: apt-get install -y git cmake nodejs gcc-mingw-w64-x86-64
       - run: echo "SHORT_SHA=`echo ${{ github.sha }} | cut -c1-8`" >> $GITHUB_ENV
       - run: git clone --recurse-submodules ${{ github.server_url }}/${{ github.repository }} ${SHORT_SHA}
       - run: cd ${SHORT_SHA} && git checkout ${{ github.sha }}
       - run: mkdir -p install/debug
       - run: |
           cmake -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=/usr/bin/x86_64-linux-gnu-gcc \
-            -DCMAKE_EXE_LINKER_FLAGS=-static \
-            -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=AMD64 \
+            -DCMAKE_TOOLCHAIN_FILE=mingw-amd64.cmake \
             -S ${SHORT_SHA} -B debug-work && \
           cmake --build debug-work --parallel `nproc` && \
           cp debug-work/btrfs.efi install/debug/
       - run: |
           cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_C_COMPILER=/usr/bin/x86_64-linux-gnu-gcc \
-            -DCMAKE_EXE_LINKER_FLAGS=-static \
-            -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=AMD64 \
+            -DCMAKE_TOOLCHAIN_FILE=mingw-amd64.cmake \
             -S ${SHORT_SHA} -B release-work && \
           cmake --build release-work --parallel `nproc` && \
           cp release-work/btrfs.efi install/
