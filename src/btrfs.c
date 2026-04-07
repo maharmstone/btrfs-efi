@@ -2124,6 +2124,8 @@ static EFI_STATUS EFIAPI file_get_info(struct _EFI_FILE_HANDLE* File, EFI_GUID* 
     EFI_STATUS Status;
     inode* ino = _CR(File, inode, proto);
     EFI_GUID guid = EFI_FILE_INFO_ID;
+    EFI_GUID fs_info_guid = EFI_FILE_SYSTEM_INFO_ID;
+    EFI_GUID fs_label_guid = EFI_FILE_SYSTEM_VOLUME_LABEL_ID;
 
     // FIXME - EFI_FILE_SYSTEM_INFO
 
@@ -2170,6 +2172,60 @@ static EFI_STATUS EFIAPI file_get_info(struct _EFI_FILE_HANDLE* File, EFI_GUID* 
             info->FileName[0] = 0;
 
         // FIXME - get other attributes from DOSATTRIB xattr?
+
+        return EFI_SUCCESS;
+    } else if (!memcmp(InformationType, &fs_info_guid, sizeof(EFI_GUID))) {
+        superblock* sb = ino->vol->sb;
+        unsigned int label_len, ori_label_len = strlen(sb->label);
+        utf8_to_utf16(NULL, 0, &label_len, sb->label, ori_label_len);
+        if (EFI_ERROR(Status)) {
+            do_print_error("utf8_to_utf16", Status);
+            return Status;
+        }
+        unsigned int size = SIZE_OF_EFI_FILE_SYSTEM_INFO + label_len;
+        EFI_FILE_SYSTEM_INFO* info = (EFI_FILE_SYSTEM_INFO*)Buffer;
+
+        if (*BufferSize < size) {
+            *BufferSize = size;
+            return EFI_BUFFER_TOO_SMALL;
+        }
+
+        info->Size = size;
+        info->ReadOnly = TRUE;
+        info->VolumeSize = sb->total_bytes;
+        info->FreeSpace = sb->bytes_used;
+        info->BlockSize = sb->sector_size;
+
+        utf8_to_utf16(info->VolumeLabel, label_len, &label_len, sb->label, ori_label_len);
+        if (EFI_ERROR(Status)) {
+            do_print_error("utf8_to_utf16", Status);
+            return Status;
+        }
+        info->VolumeLabel[label_len / sizeof(WCHAR)] = 0;
+
+        return EFI_SUCCESS;
+    } else if (!memcmp(InformationType, &fs_label_guid, sizeof(EFI_GUID))) {
+        superblock* sb = ino->vol->sb;
+        unsigned int label_len, ori_label_len = strlen(sb->label);
+        utf8_to_utf16(NULL, 0, &label_len, sb->label, ori_label_len);
+        if (EFI_ERROR(Status)) {
+            do_print_error("utf8_to_utf16", Status);
+            return Status;
+        }
+        unsigned int size = SIZE_OF_EFI_FILE_SYSTEM_VOLUME_LABEL_INFO + label_len;
+        EFI_FILE_SYSTEM_VOLUME_LABEL* info = (EFI_FILE_SYSTEM_VOLUME_LABEL*)Buffer;
+
+        if (*BufferSize < size) {
+            *BufferSize = size;
+            return EFI_BUFFER_TOO_SMALL;
+        }
+
+        utf8_to_utf16(info->VolumeLabel, label_len, &label_len, sb->label, ori_label_len);
+        if (EFI_ERROR(Status)) {
+            do_print_error("utf8_to_utf16", Status);
+            return Status;
+        }
+        info->VolumeLabel[label_len / sizeof(WCHAR)] = 0;
 
         return EFI_SUCCESS;
     } else {
